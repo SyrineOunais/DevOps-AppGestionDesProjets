@@ -10,10 +10,56 @@ pipeline {
             }
         }
 
-        stage('Test') {
+        stage('Test Docker') {
             steps {
-                echo 'Projet récupéré depuis GitHub avec succès !'
+                sh 'docker --version'
+                sh 'docker ps'
             }
+        }
+
+        stage('Build Backend') {
+            steps {
+                sh 'docker build -t syrineboh/backend:1.0 ./backend'
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                sh 'docker build -t syrineboh/frontend:1.0 ./frontend'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            -u "$DOCKER_USERNAME" \
+                            --password-stdin
+
+                        docker push syrineboh/backend:1.0
+                        docker push syrineboh/frontend:1.0
+
+                        docker logout
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Build et push Docker Hub réussis !'
+        }
+
+        failure {
+            echo 'Le pipeline a échoué.'
         }
     }
 }
